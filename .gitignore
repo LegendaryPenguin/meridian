@@ -1,0 +1,12 @@
+build/
+build-*/
+cmake-build-*/
+*.o
+*.a
+*.mrd
+corpus.tsv
+.DS_Store
+compile_commands.json
+__pycache__/
+*.pyc
+.venv/
