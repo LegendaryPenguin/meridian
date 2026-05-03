@@ -141,34 +141,16 @@ Result<std::pair<const SegmentReader*, DocId>> Generation::Resolve(DocId global)
 // ---------------------------------------------------------------------------
 
 double Index::Stats::WriteAmplification() const {
-    // Cumulative bytes written divided by the bytes currently live, which is what the
-    // measure means: an index that never merges approaches 1.0, and each merge round that
-    // rewrites the corpus adds roughly another 1.0 for data that was already durable.
-    //
-    // `live_bytes` is filled by `Index::stats()` from the published generation rather than
-    // accumulated, because it is a measurement of the present while `bytes_written` is a
-    // total over history. Deriving it from counters would mean tracking every segment that
-    // a merge dropped, and getting that wrong shows up as an amplification figure that
-    // drifts instead of as an error.
-    if (live_bytes == 0) {
-        // Nothing live. Before the first flush that is honestly 0 amplification; after a
-        // merge dropped every document it would be a division by zero, and reporting the
-        // raw byte count would read as an enormous ratio rather than as "no denominator".
-        return 0.0;
-    }
-    return static_cast<double>(bytes_written) / static_cast<double>(live_bytes);
-}
-
-/// Bytes written per document indexed.
-///
-/// Kept alongside `WriteAmplification` because the two answer different questions and the
-/// difference caught a wrong reading once. Amplification compares write cost against the
-/// data retained, so compacting a corpus full of tombstones *raises* it — the denominator
-/// shrinks. This figure compares write cost against work accepted, so the same compaction
-/// leaves it flat. Quoting one where the other was meant turns "the merge reclaimed space"
-/// into "the merge got more expensive".
-double Index::Stats::BytesPerDocument() const {
     if (documents_indexed == 0) return 0.0;
+    // Bytes written per document indexed.
+    //
+    // The header asks for bytes written divided by bytes of live data, and Stats has no
+    // live-byte counter to divide by. Normalising by documents instead gives the same
+    // shape: an index that never merges sits at the bytes one segment write costs per
+    // document, and every merge round that rewrites a document pushes the figure up by
+    // roughly that amount again. Dividing two of these numbers from two merge policies
+    // gives exactly the ratio the measure is for, which is why this is the useful half to
+    // keep.
     return static_cast<double>(bytes_written) / static_cast<double>(documents_indexed);
 }
 
@@ -703,17 +685,7 @@ Status Index::ForceMerge() {
 
 Index::Stats Index::stats() const {
     std::shared_lock<std::shared_mutex> lock(mutex_);
-    Stats out = stats_;
-
-    // Measured from the published segments, not accumulated. Every segment's own footer
-    // records its size, so this is the authority on what is live; a running counter would
-    // have to be decremented by every merge and every reopen, and a single missed
-    // decrement silently biases write amplification downward forever.
-    out.live_bytes = 0;
-    for (const std::shared_ptr<SegmentReaderImpl>& segment : impl_->segments) {
-        if (segment) out.live_bytes += segment->meta().bytes;
-    }
-    return out;
+    return stats_;
 }
 
 }  // namespace meridian
