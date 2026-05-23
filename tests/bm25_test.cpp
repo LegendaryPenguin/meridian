@@ -725,4 +725,56 @@ MERIDIAN_TEST(FilterOnlyQueriesBrowseTheFilteredSet) {
     for (const Candidate& c : result.value()) CHECK_NEAR(c.score, 0.0, "filter-only score");
 }
 
+MERIDIAN_TEST(ACorruptPostingBlockFailsTheQueryInsteadOfShorteningIt) {
+    // The failure this whole mechanism exists for, tested at the level where it does
+    // damage. A corrupt block stops a walk and reports `kNoMoreDocs`, which is exactly what
+    // the end of a list looks like — so retrieval could return a short result set and say
+    // `ok()`. A query for every document matching a term, answered with half of them and no
+    // error, is the worst outcome in the system, because nothing downstream can detect it.
+    //
+    // 12 documents all containing "zebra", with the lists breaking after 4 decodes.
+    CorpusBuilder builder;
+    for (int i = 0; i < 12; ++i) {
+        builder.Add({"doc-" + std::to_string(i), "", "zebra alpha beta", "", "en", "general", 0,
+                     0.0, false});
+    }
+    builder.CorruptTerm("zebra", 4);
+    std::shared_ptr<Generation> gen = builder.Build();
+
+    const LexicalRetriever retriever({}, FieldWeights{});
+    Result<Query> parsed = query::Parse("zebra");
+    CHECK(parsed.ok());
+
+    Result<std::vector<Candidate>> result = retriever.Retrieve(*gen, parsed.value());
+
+    // Must fail, and must say why: `kCorruption` tells an operator to re-index a damaged
+    // segment, which is a different instruction from every other code here.
+    CHECK(!result.ok());
+    CHECK(result.status().code() == Code::kCorruption);
+    // The context names the term and segment, so the message identifies what to re-index
+    // rather than only that something is wrong.
+    CHECK(result.status().message().find("zebra") != std::string::npos);
+    std::printf("  corrupt block surfaced as: %s\n", result.status().ToString().c_str());
+}
+
+MERIDIAN_TEST(AnUncorruptedQueryOverTheSameCorpusStillSucceeds) {
+    // The control. Without it the test above passes just as well against a retriever that
+    // fails every query, which would prove nothing.
+    CorpusBuilder builder;
+    for (int i = 0; i < 12; ++i) {
+        builder.Add({"doc-" + std::to_string(i), "", "zebra alpha beta", "", "en", "general", 0,
+                     0.0, false});
+    }
+    builder.CorruptTerm("zebra", 4);
+    std::shared_ptr<Generation> gen = builder.Build();
+
+    const LexicalRetriever retriever({}, FieldWeights{});
+    Result<Query> parsed = query::Parse("alpha");  // a term whose lists are intact
+    CHECK(parsed.ok());
+
+    Result<std::vector<Candidate>> result = retriever.Retrieve(*gen, parsed.value());
+    CHECK(result.ok());
+    CHECK_EQ(result.value().size(), 12u);
+}
+
 MERIDIAN_TEST_MAIN()

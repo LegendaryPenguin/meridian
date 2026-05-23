@@ -35,6 +35,30 @@ namespace meridian {
 // ---------------------------------------------------------------------------
 // Generation, provided here only until src/index/ lands it.
 //
+// `Generation`'s constructor and `Resolve` are declared in the frozen index.hpp and
+// belong to src/index/, which does not exist yet; nothing links without them. Defined
+// inline so the definition is discarded the moment the real one appears -- delete the
+// #define and this block together.
+// ---------------------------------------------------------------------------
+#ifndef MERIDIAN_INDEX_PROVIDES_GENERATION
+
+inline Generation::Generation(uint64_t version, std::vector<std::shared_ptr<SegmentReader>> segments,
+                             CorpusStats stats)
+    : version_(version), segments_(std::move(segments)), stats_(stats) {}
+
+inline Result<std::pair<const SegmentReader*, DocId>> Generation::Resolve(DocId global) const {
+    for (const std::shared_ptr<SegmentReader>& s : segments_) {
+        if (!s) continue;
+        const SegmentMeta& meta = s->meta();
+        if (global >= meta.doc_base && global < meta.doc_base + meta.document_count) {
+            return std::pair<const SegmentReader*, DocId>(s.get(), global - meta.doc_base);
+        }
+    }
+    return Status::NotFound("doc " + std::to_string(global) + " is in no segment");
+}
+
+#endif  // MERIDIAN_INDEX_PROVIDES_GENERATION
+
 namespace testfixture {
 
 /// Postings for one term in one field, ascending by document.

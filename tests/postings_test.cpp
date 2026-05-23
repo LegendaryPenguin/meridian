@@ -344,6 +344,14 @@ MERIDIAN_TEST(CorruptBlockChecksumIsDetected) {
         std::unique_ptr<postings::ListIterator> it = opened.take();
         WalkAll(*it);
         reported = !it->error().ok() && it->error().code() == Code::kCorruption;
+
+        // And through the base interface, which is the form every consumer of a posting
+        // list actually holds. The reason was always latched here; until `status()` was on
+        // `PostingIterator` a caller could not reach it, so the query layer walked to
+        // exhaustion and reported success on a truncated list.
+        const PostingIterator& base = *it;
+        CHECK(!base.status().ok());
+        CHECK(base.status().code() == Code::kCorruption);
     }
     CHECK(reported);
 }

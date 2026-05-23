@@ -50,6 +50,22 @@ public:
 
     std::string ToString() const;
 
+    /// The same failure with `where` prepended to the message.
+    ///
+    /// Keeps the code, which is the whole reason this exists rather than rebuilding the
+    /// status at the call site. A layer adding context has to re-pick a factory to do that,
+    /// and re-picking means guessing: a corrupt posting block reported upward as
+    /// `kInternal` tells an operator to look for a logic bug in code that is fine, when the
+    /// actual instruction is to re-index a damaged segment. The code is the part callers
+    /// branch on; the message is for whoever reads the log.
+    ///
+    /// An Ok status is returned unchanged — annotating a success is meaningless, and
+    /// building a failure out of one would invent an error that did not happen.
+    Status WithContext(std::string_view where) const {
+        if (ok()) return *this;
+        return {code_, std::string(where) + ": " + message_};
+    }
+
 private:
     Status(Code c, std::string m) : code_(c), message_(std::move(m)) {}
 

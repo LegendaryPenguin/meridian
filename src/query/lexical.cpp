@@ -77,6 +77,22 @@ public:
     const std::string& term() const { return term_; }
     DocId doc() const { return doc_; }
 
+    /// The first failure latched by any of this term's field iterators.
+    ///
+    /// Must be consulted before a result set is believed complete. `next()` and
+    /// `advance()` report a corrupt block by going exhausted, which is indistinguishable
+    /// from reaching the end of the list — so a retriever that only watches for
+    /// `kNoMoreDocs` turns a checksum failure into a query that quietly returns four of
+    /// its nine matches. There is no error anywhere in that outcome, which is what makes
+    /// it the worst failure in the system.
+    Status status() const {
+        for (const FieldCursor& fc : fields_) {
+            const Status s = fc.it->status();
+            if (!s.ok()) return s;
+        }
+        return Status::Ok();
+    }
+
     /// Upper bound on the union's length. Used only for ordering, where an upper bound
     /// is the right thing: it over-estimates by the overlap between fields, and the
     /// overlap is largest for exactly the common terms that should sort last anyway.
@@ -520,6 +536,20 @@ Result<std::vector<Candidate>> RetrieveImpl(const Generation& gen, const Query& 
                                 query.mode == QueryMode::kPhrase, all);
         } else {
             EvaluateDisjunctive(ctx, cursors, all);
+        }
+
+        // Checked after the walk, before these candidates are believed complete. A
+        // corrupt block stops an iterator early and looks exactly like the end of a
+        // posting list, so without this the query returns a short result set and reports
+        // success — the one failure mode with no observable symptom. Failing the whole
+        // retrieval is right: a silently incomplete answer to "find me every document
+        // matching X" is worse than no answer, because the caller cannot tell.
+        for (const TermCursor& cursor : cursors) {
+            const Status walk = cursor.status();
+            if (!walk.ok()) {
+                return walk.WithContext("term '" + cursor.term() + "' in segment " +
+                                        std::to_string(segment->meta().id));
+            }
         }
 
         AccumulateCursorStats(cursors, stats);

@@ -96,12 +96,22 @@ public:
     virtual ~PostingIterator() = default;
 
     /// Current document, or kNoMoreDocs when exhausted.
+    ///
+    /// A freshly opened iterator is **already positioned on its first posting**, so a walk
+    /// needs no priming call:
+    ///
+    ///     for (DocId d = it->doc(); d != kNoMoreDocs; d = it->next()) { ... }
+    ///
+    /// Stated because the other convention — positioned *before* the first posting, so the
+    /// walk opens with `next()` — is at least as common, and mixing them does not fail
+    /// loudly: it silently drops or double-counts the first document of every list.
     virtual DocId doc() const = 0;
 
     /// Advances to the next posting.
     virtual DocId next() = 0;
 
-    /// Advances to the first document >= target.
+    /// Advances to the first document >= target. Never moves backwards: a target at or
+    /// below the current document leaves the iterator where it is.
     ///
     /// This is the operation skip lists exist for. A correct-but-slow implementation
     /// can loop on next(); an implementation that uses skips must land on exactly the
@@ -118,6 +128,20 @@ public:
     /// Documents remaining, as an upper bound. Used to order a conjunctive merge
     /// cheapest-list-first, which is the single biggest win in query evaluation.
     virtual uint32_t size_hint() const = 0;
+
+    /// Why the walk stopped.
+    ///
+    /// `doc() == kNoMoreDocs` means the iterator has stopped, and on its own it cannot say
+    /// whether the list ended or a block failed its checksum. Those must be
+    /// distinguishable. A corrupt block that reads as "no more documents" turns into a
+    /// short result list — a query that silently returns four of its nine matches, with
+    /// nothing anywhere reporting a fault. That is the exact failure `status.hpp` exists to
+    /// prevent, and it is worse here than an error would be, because the caller has no way
+    /// to notice it happened.
+    ///
+    /// Contract: `kOk` until something fails, latched thereafter. A caller that walks to
+    /// exhaustion must check this before trusting the list to be complete.
+    virtual Status status() const { return Status::Ok(); }
 
     /// Counters that make the skip-list claim measurable rather than asserted.
     struct Stats {

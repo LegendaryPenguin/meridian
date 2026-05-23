@@ -31,10 +31,12 @@ namespace meridian::postings {
 
 /// The shared half of both iterators: block framing, block loading, and the counters.
 ///
-/// PostingIterator's methods cannot return a Status, so a decode failure part-way
-/// through a walk is reported by going exhausted and latching the reason in `error()`.
-/// Silently stopping would turn a corrupt block into a short result list, which is the
-/// failure this project treats as the worst one.
+/// `next()` and `advance()` return a DocId and cannot report a failure, so a decode
+/// failure part-way through a walk goes exhausted and latches the reason, surfaced through
+/// `PostingIterator::status()`. Silently stopping would turn a corrupt block into a short
+/// result list, which is the failure this project treats as the worst one — and until
+/// `status()` existed on the interface, a caller holding the base class could not tell the
+/// two apart even though the reason was recorded right here.
 class ListIterator : public PostingIterator {
 public:
     ListIterator(std::shared_ptr<const storage::ByteSource> source, uint64_t list_offset,
@@ -52,6 +54,9 @@ public:
     uint32_t size_hint() const override;
     Stats stats() const override { return stats_; }
 
+    Status status() const override { return error_; }
+
+    /// Same value by reference, for callers that already hold the concrete type.
     const Status& error() const { return error_; }
     bool has_positions() const { return header_.has_positions; }
     uint32_t num_postings() const { return header_.num_postings; }
