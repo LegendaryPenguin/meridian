@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="900" viewBox="0 0 1320 900" role="img" aria-labelledby="t d">
+  <title id="t">Meridian architecture</title>
+  <desc id="d">The indexing path writes immutable segments and merges them. Publication is one atomic pointer swap from the superseded generation to the current one. The query path parses, runs lexical retrieval and ANN search concurrently, fuses, reranks and materializes, with every stage reading the same pinned immutable generation. A result cache and a posting cache sit alongside.</desc>
+
+  <defs>
+    <marker id="a" markerWidth="9" markerHeight="7" refX="8.4" refY="3.5" orient="auto">
+      <path d="M0,0 L9,3.5 L0,7 z" fill="#dbe5f0"/>
+    </marker>
+    <marker id="ad" markerWidth="9" markerHeight="7" refX="8.4" refY="3.5" orient="auto">
+      <path d="M0,0 L9,3.5 L0,7 z" fill="#b4c4d8"/>
+    </marker>
+  </defs>
+
+  <!-- Self-contained background so the diagram reads the same on a light or a dark page. -->
+  <rect x="0" y="0" width="1320" height="900" fill="#333d4c"/>
+  <rect x="1.5" y="1.5" width="1317" height="897" fill="none" stroke="#7e90a8" stroke-width="3"/>
+
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+
+    <text x="40" y="48" font-size="25" font-weight="600" fill="#ffffff">Meridian &#8212; the indexing path, the query path, and the generation pointer they share</text>
+    <text x="40" y="76" font-size="14" fill="#d4dde8">A published generation is immutable. Publication is one pointer assignment. A query pins one generation for its whole lifetime.</text>
+
+    <!-- ================= INDEXING BAND ================= -->
+    <text x="40" y="118" font-size="13" font-weight="700" fill="#cfdae8" letter-spacing="1.8">INDEXING PATH</text>
+
+    <g stroke="#aebed2" stroke-width="2">
+      <rect x="40"   y="128" width="200" height="80" fill="#4a5769"/>
+      <rect x="268"  y="128" width="236" height="80" fill="#4a5769"/>
+      <rect x="532"  y="128" width="256" height="80" fill="#4a5769"/>
+      <rect x="816"  y="128" width="256" height="80" fill="#4a5769"/>
+      <rect x="1100" y="128" width="180" height="80" fill="#4a5769"/>
+    </g>
+
+    <g text-anchor="middle" fill="#ffffff" font-size="15" font-weight="600">
+      <text x="140"  y="158">Documents</text>
+      <text x="386"  y="158">In-memory buffer</text>
+      <text x="660"  y="158">Immutable segment</text>
+      <text x="944"  y="158">Size-tiered merge</text>
+      <text x="1190" y="158">Manifest</text>
+    </g>
+    <g text-anchor="middle" fill="#dde5ef" font-size="12">
+      <text x="140"  y="180">Add(meta, tokens by field)</text>
+      <text x="140"  y="198">one record per document</text>
+      <text x="386"  y="180">not searchable until Flush()</text>
+      <text x="386"  y="198">flushes at docs_per_segment</text>
+      <text x="660"  y="180">front-coded dictionary,</text>
+      <text x="660"  y="198">block postings, CRC-32 per block</text>
+      <text x="944"  y="180">output built outside the index lock;</text>
+      <text x="944"  y="198">tombstones dropped, terms merged</text>
+      <text x="1190" y="180">rewritten atomically</text>
+      <text x="1190" y="198">after publication</text>
+    </g>
+
+    <g stroke="#dbe5f0" stroke-width="2.4" fill="none" marker-end="url(#a)">
+      <path d="M240 168 H262"/>
+      <path d="M504 168 H526"/>
+      <path d="M788 168 H810"/>
+      <path d="M1072 168 H1094"/>
+      <path d="M660 208 V246"/>
+      <path d="M944 208 V246"/>
+      <path d="M1190 252 V214"/>
+    </g>
+    <g font-size="11.5" fill="#c6d1df">
+      <text x="670" y="234">publishes</text>
+      <text x="954" y="234">publishes</text>
+    </g>
+
+    <!-- ================= GENERATION PANEL (the centre of the design) ================= -->
+    <rect x="40" y="252" width="1240" height="210" fill="#3b4756" stroke="#eaf1f9" stroke-width="3.5"/>
+    <text x="64" y="284" font-size="15" font-weight="700" fill="#ffffff">GENERATION PUBLICATION &#8212; one pointer assignment, under the write lock. Everything else in this diagram is arranged around it.</text>
+
+    <!-- superseded: dashed outline, and it says so in words -->
+    <rect x="80" y="300" width="480" height="124" fill="#46525f" stroke="#aebed2" stroke-width="2" stroke-dasharray="9 6"/>
+    <text x="320" y="330" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Generation N-1 &#183; SUPERSEDED</text>
+    <g text-anchor="middle" font-size="12.5" fill="#dde5ef">
+      <text x="320" y="356">ten segments, each held by shared_ptr</text>
+      <text x="320" y="378">queries that pinned it keep answering, correctly</text>
+      <text x="320" y="400">its files are unlinked only when the last reader lets go</text>
+    </g>
+
+    <!-- current: heavy bright outline, and it says so in words -->
+    <rect x="760" y="300" width="480" height="124" fill="#5b6b80" stroke="#ffffff" stroke-width="4"/>
+    <text x="1000" y="330" text-anchor="middle" font-size="16" font-weight="700" fill="#ffffff">Generation N &#183; CURRENT</text>
+    <g text-anchor="middle" font-size="12.5" fill="#eef3f9">
+      <text x="1000" y="356">one merged segment + corpus-wide statistics</text>
+      <text x="1000" y="378">immutable from the instant it is published</text>
+      <text x="1000" y="400">every query starting now pins this one</text>
+    </g>
+
+    <path d="M560 362 H752" stroke="#ffffff" stroke-width="3.5" fill="none" marker-end="url(#a)"/>
+    <text x="656" y="348" text-anchor="middle" font-size="13.5" font-weight="700" fill="#ffffff">pointer swap</text>
+    <text x="656" y="390" text-anchor="middle" font-size="11.5" fill="#d8e2ee">one assignment under the lock</text>
+
+    <text x="64" y="448" font-size="12.5" fill="#d4dde8">No reader is ever interrupted and no file is ever overwritten in place. Publication is the only thing that changes what a new query sees.</text>
+
+    <!-- pin connector from the panel down into the query path -->
+    <path d="M660 462 V500" stroke="#b4c4d8" stroke-width="2.4" stroke-dasharray="7 5" fill="none" marker-end="url(#ad)"/>
+    <text x="682" y="492" font-size="12.5" fill="#d4dde8">Acquire() &#8212; one immutable view, held for the whole query</text>
+
+    <!-- ================= QUERY BAND, inside the pin boundary ================= -->
+    <rect x="28" y="506" width="1264" height="250" fill="none" stroke="#b4c4d8" stroke-width="2.4" stroke-dasharray="11 7"/>
+    <text x="46" y="528" font-size="13" font-weight="700" fill="#cfdae8" letter-spacing="1.2">QUERY PATH &#8212; every stage below reads the same pinned, immutable generation</text>
+
+    <g stroke="#aebed2" stroke-width="2">
+      <rect x="40"  y="600" width="140" height="76" fill="#4a5769"/>
+      <rect x="220" y="540" width="240" height="76" fill="#4a5769"/>
+      <rect x="220" y="664" width="240" height="76" fill="#4a5769"/>
+      <rect x="552" y="600" width="180" height="76" fill="#4a5769"/>
+      <rect x="764" y="600" width="180" height="76" fill="#4a5769"/>
+      <rect x="976" y="600" width="190" height="76" fill="#4a5769"/>
+    </g>
+
+    <g text-anchor="middle" fill="#ffffff" font-size="15" font-weight="600">
+      <text x="110"  y="630">parse</text>
+      <text x="340"  y="568">lexical retrieve</text>
+      <text x="340"  y="692">ANN search</text>
+      <text x="642"  y="630">fuse</text>
+      <text x="854"  y="630">rerank</text>
+      <text x="1071" y="630">materialize</text>
+    </g>
+    <g text-anchor="middle" fill="#dde5ef" font-size="12">
+      <text x="110"  y="650">tokenize +</text>
+      <text x="110"  y="666">Porter stem</text>
+      <text x="340"  y="588">BM25 over block postings,</text>
+      <text x="340"  y="606">skip tables, leapfrog / OR</text>
+      <text x="340"  y="712">HNSW graph walk, ef_search;</text>
+      <text x="340"  y="730">tombstones post-filtered</text>
+      <text x="642"  y="650">RRF / norm-linear /</text>
+      <text x="642"  y="666">z-score linear</text>
+      <text x="854"  y="650">linear feature model</text>
+      <text x="854"  y="666">over the candidates</text>
+      <text x="1071" y="650">top-k only: external ids</text>
+      <text x="1071" y="666">and stored fields</text>
+    </g>
+
+    <g stroke="#dbe5f0" stroke-width="2.4" fill="none">
+      <path d="M180 638 H200 V578 H214" marker-end="url(#a)"/>
+      <path d="M180 638 H200 V702 H214" marker-end="url(#a)"/>
+      <path d="M460 702 H510 V638"/>
+      <path d="M460 578 H510 V638 H546" marker-end="url(#a)"/>
+      <path d="M732 638 H746" marker-end="url(#a)"/>
+      <path d="M944 638 H970" marker-end="url(#a)"/>
+      <path d="M1166 638 H1240" marker-end="url(#a)"/>
+    </g>
+    <text x="340" y="645" text-anchor="middle" font-size="11.5" fill="#c6d1df">both paths run concurrently</text>
+    <text x="1203" y="624" text-anchor="middle" font-size="12" fill="#dde5ef">top-k hits</text>
+
+    <!-- ================= CACHES ================= -->
+    <g stroke="#a4b4c8" stroke-width="2" stroke-dasharray="9 6">
+      <rect x="40"  y="784" width="420" height="76" fill="#44505f"/>
+      <rect x="486" y="784" width="420" height="76" fill="#44505f"/>
+    </g>
+    <g stroke="#b4c4d8" stroke-width="2.2" stroke-dasharray="7 5" fill="none" marker-end="url(#ad)">
+      <path d="M250 784 V762"/>
+      <path d="M696 784 V762"/>
+    </g>
+    <g text-anchor="middle" fill="#ffffff" font-size="14" font-weight="600">
+      <text x="250" y="812">RESULT CACHE &#8212; sharded SLRU</text>
+      <text x="696" y="812">POSTING CACHE &#8212; sharded SLRU</text>
+    </g>
+    <g text-anchor="middle" fill="#dde5ef" font-size="12">
+      <text x="250" y="832">key includes the generation version, so publication</text>
+      <text x="250" y="850">invalidates it. A hit does no retrieval work at all.</text>
+      <text x="696" y="832">keyed by (term, field, segment). Segments never change,</text>
+      <text x="696" y="850">so entries survive publication and are not invalidated.</text>
+    </g>
+
+    <!-- ================= LEGEND ================= -->
+    <rect x="932" y="784" width="348" height="96" fill="#3b4756" stroke="#8b9cb3" stroke-width="2"/>
+    <g fill="#e3eaf2" font-size="11.5">
+      <text x="948" y="806">Solid outline and solid arrow: dataflow.</text>
+      <text x="948" y="824">Dashed outline: a cache, or the pin boundary.</text>
+      <text x="948" y="842">Heavy bright outline: the generation now current.</text>
+      <text x="948" y="860">Nothing here is distinguished by colour alone.</text>
+    </g>
+
+  </g>
+</svg>

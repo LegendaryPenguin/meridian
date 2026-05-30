@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="900" viewBox="0 0 1320 900" role="img" aria-labelledby="t d">
+  <title id="t">One query's journey, with the per-stage trace</title>
+  <desc id="d">A timeline of one hybrid query over the 50,000-document collection. Parse costs 250 nanoseconds, lexical retrieval 54,417, the HNSW ANN search 38,959 concurrently with it, fusion 14,417, reranking 24,333, materialize 42, against a measured total of 107,458 nanoseconds. 14.0 microseconds of the total is attributed to no stage. The same query served from the result cache takes 916 nanoseconds with every stage at exactly zero.</desc>
+
+  <!-- Self-contained background so the diagram reads the same on a light or a dark page. -->
+  <rect x="0" y="0" width="1320" height="900" fill="#333d4c"/>
+  <rect x="1.5" y="1.5" width="1317" height="897" fill="none" stroke="#7e90a8" stroke-width="3"/>
+
+  <g font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+
+    <text x="40" y="50" font-size="25" font-weight="600" fill="#ffffff">One query, and where its time actually goes</text>
+    <text x="40" y="78" font-size="13.5" fill="#d4dde8">Median of 15 cold samples over the 50,000-document collection, candidate_k 200, five segments, embeddings of dimension 52. RelWithDebInfo, Apple M4 Pro.</text>
+
+    <rect x="40" y="92" width="1240" height="54" fill="#2a323e" stroke="#8b9cb3" stroke-width="1.6" stroke-dasharray="8 5"/>
+    <g font-family="Menlo, DejaVu Sans Mono, monospace" font-size="11.5" fill="#dde5ef" xml:space="preserve">
+      <text x="56" y="116">$ ./build/meridian_eval --corpus /tmp/coll/corpus.tsv --embeddings /tmp/coll/embeddings.tsv --queries /tmp/coll/queries.tsv \</text>
+      <text x="56" y="136">      --qrels /tmp/coll/qrels.txt --query-embeddings /tmp/coll/query_embeddings.tsv --mode hybrid --top-k 5 --repeat 15 --cold --query "baguna badoji bajibi"</text>
+    </g>
+
+    <!-- =============== THE TIMELINE =============== -->
+    <text x="40" y="176" font-size="13" font-weight="700" fill="#cfdae8" letter-spacing="1.4">COLD: NANOSECONDS PER STAGE, STRAIGHT OUT OF QueryTrace</text>
+    <text x="1250" y="176" text-anchor="end" font-size="12" fill="#c6d1df" font-style="italic">horizontal axis: microseconds elapsed</text>
+
+    <!-- gridlines -->
+    <g stroke="#59667a" stroke-width="1">
+      <path d="M300 204 V474"/>
+      <path d="M382.6 204 V474"/>
+      <path d="M465.2 204 V474"/>
+      <path d="M547.8 204 V474"/>
+      <path d="M630.4 204 V474"/>
+      <path d="M713 204 V474"/>
+      <path d="M795.6 204 V474"/>
+      <path d="M878.2 204 V474"/>
+      <path d="M960.8 204 V474"/>
+      <path d="M1043.4 204 V474"/>
+      <path d="M1126 204 V474"/>
+      <path d="M1208.6 204 V474"/>
+    </g>
+    <path d="M300 198 H1250" stroke="#aebed2" stroke-width="2"/>
+    <g text-anchor="middle" font-size="11.5" fill="#c6d1df">
+      <text x="300" y="190">0</text>
+      <text x="382.6" y="190">10</text>
+      <text x="465.2" y="190">20</text>
+      <text x="547.8" y="190">30</text>
+      <text x="630.4" y="190">40</text>
+      <text x="713" y="190">50</text>
+      <text x="795.6" y="190">60</text>
+      <text x="878.2" y="190">70</text>
+      <text x="960.8" y="190">80</text>
+      <text x="1043.4" y="190">90</text>
+      <text x="1126" y="190">100</text>
+      <text x="1208.6" y="190">110</text>
+    </g>
+
+    <!-- the concurrent pair, marked by an enclosure and by the word itself -->
+    <rect x="296" y="240" width="460" height="78" fill="none" stroke="#b4c4d8" stroke-width="2" stroke-dasharray="9 6"/>
+    <text x="766" y="233" font-size="12" font-weight="700" fill="#e3eaf2">CONCURRENT PAIR</text>
+
+    <!-- row labels -->
+    <g text-anchor="end" font-size="14" fill="#ffffff">
+      <text x="282" y="231">parse</text>
+      <text x="282" y="267">lexical retrieve</text>
+      <text x="282" y="303">ANN search (HNSW)</text>
+      <text x="282" y="339">fuse</text>
+      <text x="282" y="375">rerank</text>
+      <text x="282" y="411">materialize</text>
+      <text x="282" y="459" font-weight="700">MEASURED TOTAL</text>
+    </g>
+
+    <!-- bars -->
+    <rect x="300" y="210" width="3" height="30" fill="#4a5769" stroke="#aebed2" stroke-width="1.6"/>
+    <rect x="302.1" y="246" width="449.5" height="30" fill="#5b6b80" stroke="#ffffff" stroke-width="2.5"/>
+    <rect x="302.1" y="282" width="321.9" height="30" fill="#5b6b80" stroke="#ffffff" stroke-width="2.5"/>
+    <rect x="751.6" y="318" width="119.1" height="30" fill="#4a5769" stroke="#aebed2" stroke-width="2"/>
+    <rect x="870.7" y="354" width="201.2" height="30" fill="#4a5769" stroke="#aebed2" stroke-width="2"/>
+    <rect x="1071.9" y="390" width="3" height="30" fill="#4a5769" stroke="#aebed2" stroke-width="1.6"/>
+
+    <!-- the span the overlap hides -->
+    <path d="M624 312 V330 H751.6 V312" stroke="#b4c4d8" stroke-width="1.8" stroke-dasharray="6 4" fill="none"/>
+
+    <!-- total bar, split into accounted and unattributed -->
+    <rect x="300" y="440" width="772" height="34" fill="#6b7d94" stroke="#ffffff" stroke-width="2.5"/>
+    <rect x="1072" y="440" width="115.6" height="34" fill="#3f4a59" stroke="#aebed2" stroke-width="2" stroke-dasharray="7 5"/>
+    <text x="1130" y="492" text-anchor="middle" font-size="11.5" fill="#e3eaf2">14.0 us: no stage</text>
+    <path d="M1130 486 V478" stroke="#b4c4d8" stroke-width="1.6" fill="none"/>
+
+    <!-- value labels -->
+    <g font-size="12.5" fill="#eef3f9">
+      <text x="316" y="231">250 ns  (sub-pixel at this scale)</text>
+      <text x="761" y="267">54,417 ns</text>
+      <text x="634" y="303">38,959 ns</text>
+      <text x="881" y="339">14,417 ns</text>
+      <text x="1082" y="375">24,333 ns</text>
+      <text x="1085" y="411">42 ns  (sub-pixel)</text>
+      <text x="1198" y="463" font-weight="700" fill="#ffffff">107,458 ns</text>
+    </g>
+
+    <!-- =============== WARM =============== -->
+    <text x="40" y="520" font-size="13" font-weight="700" fill="#cfdae8" letter-spacing="1.4">WARM: THE SAME QUERY, RESULT CACHE HIT &#8212; AT THE SAME SCALE</text>
+    <path d="M300 534 V574" stroke="#59667a" stroke-width="1"/>
+    <rect x="300" y="540" width="8" height="30" fill="#5b6b80" stroke="#ffffff" stroke-width="2.5"/>
+    <text x="320" y="561" font-size="12.5" fill="#eef3f9">916 ns total, and every single stage exactly 0 &#8212; not merely small. That is 117x faster than the cold median, and it is the whole bar.</text>
+    <text x="320" y="581" font-size="12.5" fill="#d4dde8">A benchmark that ran this query three times and reported the mean would be timing a hash lookup. Every sweep in bench/results.md therefore passes --no-cache.</text>
+
+    <!-- =============== READING NOTES =============== -->
+    <text x="40" y="630" font-size="13" font-weight="700" fill="#cfdae8" letter-spacing="1.4">WHAT THIS DOES AND DOES NOT SHOW</text>
+    <g font-size="12.5" fill="#dde5ef">
+      <text x="40" y="652">The trace records a duration per stage, not a start time. Stages run in sequence except lexical and ANN, which overlap, so this timeline is a</text>
+      <text x="40" y="672">reconstruction from the durations plus the known ordering. Percentages are of the measured total and sum past 100% for exactly that reason.</text>
+      <text x="40" y="696">25.5 us of the ANN path hides behind the longer lexical path: the pipeline total approaches parse + max(lexical, ann) + fuse + rerank +</text>
+      <text x="40" y="716">materialize rather than their sum &#8212; though on a query where both paths cost only microseconds the hand-off costs more than the overlap saves.</text>
+      <text x="40" y="740">14.0 us belongs to no stage at all: queue hand-off, deadline checks at stage boundaries, and the result-cache probe. Of the elapsed 107.5 us,</text>
+      <text x="40" y="760">retrieval is 51%, fuse plus rerank 36%, unattributed 13%. materialize runs last and touches only the five documents returned, hence its 42 ns.</text>
+    </g>
+
+    <!-- =============== RAW NUMBERS =============== -->
+    <rect x="40" y="782" width="1240" height="86" fill="#2a323e" stroke="#8b9cb3" stroke-width="1.6"/>
+    <g font-family="Menlo, DejaVu Sans Mono, monospace" font-size="11.5" fill="#dde5ef" xml:space="preserve">
+      <text x="56" y="804">                 parse     lexical         ann        fuse      rerank materialize       total      (n = 15 cold samples)</text>
+      <text x="56" y="824" fill="#ffffff">median ns          250      54,417      38,959      14,417      24,333          42     107,458</text>
+      <text x="56" y="842">min ns             208      52,667      37,708      14,000      23,709           0     104,375</text>
+      <text x="56" y="860">max ns           4,083     273,625     141,584      42,250      43,708         291     379,833</text>
+    </g>
+
+  </g>
+</svg>
